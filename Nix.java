@@ -1,4 +1,3 @@
-
 package man;
 
 import robocode.*;
@@ -11,6 +10,7 @@ import java.util.*;
 public class Nix extends AdvancedRobot {
 	double enemyEnergy = 100;
 	double wallDistance = 100;
+	int dodgeDistance = 1;
 	int moveDirection = 1;
 	double battleFieldHeight;
 	double battleFieldWidth;
@@ -28,8 +28,10 @@ public class Nix extends AdvancedRobot {
 		setBulletColor(Color.pink);
 		
 		// Loop forever
+		setAdjustRadarForRobotTurn(true);
 		setAdjustGunForRobotTurn(true);
-        setAdjustRadarForGunTurn(true);
+		setAdjustRadarForGunTurn(true);
+ 
 	    turnRadarRightRadians(Double.POSITIVE_INFINITY);
 		while (true) {
 			scan();
@@ -51,14 +53,23 @@ public class Nix extends AdvancedRobot {
     	if(newEnergy != this.enemyEnergy) {
     		//Update enemy energy
     		this.enemyEnergy = newEnergy;
+    		
     		//Add random factor so it can't be easily predicted
    		 	int randomInteger = -10 + (int) (Math.random() * ((10 - (-10)) + 1));
    		 	if(randomInteger == 0)
    		 		this.moveDirection*=-1;
    		 	else
    		 		this.moveDirection*= (randomInteger/Math.abs(randomInteger));
+   		 	
    		 	//Move left and Right 
-   		 	setAhead(this.moveDirection*100);
+   		 	if(this.dodgeDistance == 1) {
+   		 		setAhead(this.moveDirection*100);
+   		 		this.dodgeDistance = 0;
+   		 	}
+   		 	else {
+   	   		 	setAhead(this.moveDirection*200); 	
+   		 		this.dodgeDistance = 1;
+   		 	}
    	 	}		
     	// Calculate exact location of the robot
 		double absoluteBearing = getHeading() + e.getBearing();
@@ -78,7 +89,10 @@ public class Nix extends AdvancedRobot {
 			// uses a turn, which could cause us to lose track
 			// of the other robot.
 			if (getGunHeat() == 0) {
-				fire(Math.min(3 - Math.abs(bearingFromGun), getEnergy() - .1));
+				//fire(Math.min(3 - Math.abs(bearingFromGun), getEnergy() - .1));
+				if(this.getEnergy()>3) {
+					fire(Math.min(3 - Math.abs(bearingFromGun), getEnergy() - .1));
+				}
 			}
 		} // otherwise just set the gun to turn.
 		// Note:  This will have no effect until we call scan()
@@ -102,10 +116,4 @@ public class Nix extends AdvancedRobot {
     public void onHitWall(HitWallEvent e) {
     	setAhead(this.moveDirection*-1*100);
     }
-    
-    //Dodge the wall
-    public void dodgeWall() {
-    	
-    }
-  
-}				
+}		
