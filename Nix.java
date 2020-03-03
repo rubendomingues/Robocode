@@ -38,9 +38,14 @@ import java.util.*;
     	if(newEnergy != this.enemyEnergy) {
     		//Update enemy energy
     		this.enemyEnergy = newEnergy;
+    		//Add random factor so it can't be easily predicted
+   		 	int randomInteger = -10 + (int) (Math.random() * ((10 - (-10)) + 1));
+   		 	if(randomInteger == 0)
+   		 		this.moveDirection*=-1;
+   		 	else
+   		 		this.moveDirection*= (randomInteger/Math.abs(randomInteger));
    		 	//Move left and Right 
-   		 	setAhead(moveDirection*100);
-   		 	moveDirection*=-1;
+   		 	setAhead(this.moveDirection*100);
    	 	}
     	
     	// Calculate exact location of the robot
@@ -88,4 +93,4 @@ import java.util.*;
          setAhead(100);
      }
     
- }
+ }			
