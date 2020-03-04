@@ -13,7 +13,6 @@ import java.util.*;
  * we see if the new enemy energy is different from the last storaged, so we know that he shot a bullet
  * when we shot him and we hit he loses energy too, so everytime we hit him with a shot we update the storaged enemy
  * It dodges moving forward and backwards randomly so it can't be easily predicted
- * It uses Guess Factor to predict enemy movements 
  */
 public class Nix extends AdvancedRobot {
 	double enemyEnergy = 100;
@@ -27,7 +26,9 @@ public class Nix extends AdvancedRobot {
 	LinkedList<Point2D.Double> enemyCords;
 	
 	public void run() {
+		//Store enemy cords
 		this.enemyCords = new LinkedList<Point2D.Double>();
+		//Get batteField dimensions
     	this.battleFieldHeight = getBattleFieldHeight();
     	this.battleFieldWidth = getBattleFieldWidth();
 		// Set colors
@@ -42,6 +43,7 @@ public class Nix extends AdvancedRobot {
 		setAdjustGunForRobotTurn(true);
 		setAdjustRadarForGunTurn(true);
  
+		// Turn the radar to find enemy robot
 	    turnRadarRightRadians(Double.POSITIVE_INFINITY);
 		while (true) {
 			scan();
@@ -53,6 +55,7 @@ public class Nix extends AdvancedRobot {
 	 * It makes the robot to fire to the enemy bullet
 	 */
 	public void onScannedRobot(ScannedRobotEvent e) {
+		dodgeWall();
 		//Lock enemy robot in radar
 		double radarTurn = getHeadingRadians() + e.getBearingRadians() - getRadarHeadingRadians();
 		setTurnRadarRightRadians(normalRelativeAngle(radarTurn));
@@ -60,32 +63,43 @@ public class Nix extends AdvancedRobot {
 		double newEnergy = e.getEnergy();
     	//Rotate 90 degrees from enemy
     	setTurnRight(e.getBearing() + 90);
-    	if(e.getDistance() < 200) {
-    		System.out.println("Perto!");
+    	
+    	//Dodge the enemy robot
+    	if(e.getDistance() < 100) {
     		setTurnLeft(normalRelativeAngleDegrees(radarTurn)+90);
     		setAhead(400);
+			dodgeWall();
     	}
+    	
+    	//Dodge the enemy bullet
     	if(newEnergy != this.enemyEnergy) {
     		//Update enemy energy
     		this.enemyEnergy = newEnergy;
     		
-    		//Add random factor so it can't be easily predicted
+    		//Add random factor to change direction so it can't be easily predicted
    		 	int randomInteger = -10 + (int) (Math.random() * ((10 - (-10)) + 1));
    		 	if(randomInteger == 0)
    		 		this.moveDirection*=-1;
    		 	else
    		 		this.moveDirection*= (randomInteger/Math.abs(randomInteger));
    		 	
+   		 	//Add random factor to change the distance he runs so it can't be easily predicted
+   		 	int randomDistance = (int) (Math.random() * (100 - 1)) + 1;
+   		 	//Add to 125 to that distance because we don't want him to run small distance
+   		 	randomDistance += 125;
+   		 	
    		 	//Move left and Right 
    		 	if(this.dodgeDistance == 1) {
-   		 		setAhead(this.moveDirection*100);
+   		 		setAhead(this.moveDirection*randomDistance);
    		 		this.dodgeDistance = 0;
    		 	}
    		 	else {
-   	   		 	setAhead(this.moveDirection*200); 	
+   	   		 	setAhead(this.moveDirection*randomDistance); 	
    		 		this.dodgeDistance = 1;
    		 	}
+			dodgeWall();
    	 	}		
+    	
     	// Calculate exact location of the robot
     	double absoluteBearing = getHeading() + e.getBearing();
     	double bearingFromGun = normalRelativeAngleDegrees(absoluteBearing - getGunHeading());
@@ -104,7 +118,6 @@ public class Nix extends AdvancedRobot {
     		// uses a turn, which could cause us to lose track
     		// of the other robot.
     		if (getGunHeat() == 0) {
-    			//fire(Math.min(3 - Math.abs(bearingFromGun), getEnergy() - .1));
     			if(this.getEnergy()>4) {
     				fire(1.72);
     			}
@@ -130,9 +143,18 @@ public class Nix extends AdvancedRobot {
     //Walks away from the wall
     public void onHitWall(HitWallEvent e) {
     	setAhead(this.moveDirection*-1*150);
+    	this.moveDirection *= -1;
     }
     
+    //Run when hitted by enemy robot
     public void onHitRobot(HitRobotEvent event) {
     	setAhead(this.moveDirection*-1*150);
+    }
+    
+    //Calculate if near a wall and dodge it
+    public void dodgeWall() {
+    	if(this.getX() < 75 || this.getY() < 75 || this.battleFieldHeight - this.getY() < 75 || this.battleFieldWidth - this.getX() < 75) {
+    		setAhead(this.moveDirection*-1*150);
+    	}
     }
 }			
