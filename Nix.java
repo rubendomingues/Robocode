@@ -17,7 +17,6 @@ import java.util.*;
 public class Nix extends AdvancedRobot {
 	double enemyEnergy = 100;
 	double wallDistance = 100;
-	int dodgeDistance = 1;
 	int moveDirection = 1;
 	double battleFieldHeight;
 	double battleFieldWidth;
@@ -43,6 +42,13 @@ public class Nix extends AdvancedRobot {
 		setAdjustGunForRobotTurn(true);
 		setAdjustRadarForGunTurn(true);
  
+    	if(this.getX() < 75 || this.getY() < 75 || this.battleFieldHeight - this.getY() < 75 || this.battleFieldWidth - this.getX() < 75) {
+    		 double centerAngle = Math.atan2(getBattleFieldWidth()/2-getX(), getBattleFieldHeight()/2-getY());
+    		 setTurnRightRadians(normalRelativeAngle(centerAngle - getHeadingRadians()));
+    		 ahead(200);
+    		 execute();
+    	}
+    	
 		// Turn the radar to find enemy robot
 	    turnRadarRightRadians(Double.POSITIVE_INFINITY);
 		while (true) {
@@ -66,7 +72,6 @@ public class Nix extends AdvancedRobot {
     	
     	//Dodge the enemy robot
     	if(e.getDistance() < 100) {
-    		setTurnLeft(normalRelativeAngleDegrees(radarTurn)+90);
     		setAhead(400);
 			dodgeWall();
     	}
@@ -89,14 +94,7 @@ public class Nix extends AdvancedRobot {
    		 	randomDistance += 125;
    		 	
    		 	//Move left and Right 
-   		 	if(this.dodgeDistance == 1) {
-   		 		setAhead(this.moveDirection*randomDistance);
-   		 		this.dodgeDistance = 0;
-   		 	}
-   		 	else {
-   	   		 	setAhead(this.moveDirection*randomDistance); 	
-   		 		this.dodgeDistance = 1;
-   		 	}
+   		 	setAhead(this.moveDirection*randomDistance);	
 			dodgeWall();
    	 	}		
     	
@@ -143,12 +141,13 @@ public class Nix extends AdvancedRobot {
     //Walks away from the wall
     public void onHitWall(HitWallEvent e) {
     	setAhead(this.moveDirection*-1*150);
-    	this.moveDirection *= -1;
+    	dodgeWall();
     }
     
     //Run when hitted by enemy robot
     public void onHitRobot(HitRobotEvent event) {
     	setAhead(this.moveDirection*-1*150);
+    	dodgeWall();
     }
     
     //Calculate if near a wall and dodge it
