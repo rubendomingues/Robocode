@@ -2,7 +2,7 @@ package man;
 
 import robocode.*;
 import static robocode.util.Utils.normalRelativeAngle;
-import java.awt.*;
+import static robocode.util.Utils.normalRelativeAngleDegrees;
 
 /**
  * Robot with 90 Degrees direction to the enemy robot
@@ -13,11 +13,10 @@ import java.awt.*;
  */
 public class Nix extends AdvancedRobot {
 	double enemyEnergy = 100;
-	double wallDistance = 100;
+	double wallDistance = 75;
 	int moveDirection = 1;
 	double battleFieldHeight;
 	double battleFieldWidth;
-	
 	/**
 	 * In this function we store the battleField dimensions,
 	 * We change our robot colors
@@ -29,19 +28,15 @@ public class Nix extends AdvancedRobot {
 		//Get batteField dimensions
     	this.battleFieldHeight = getBattleFieldHeight();
     	this.battleFieldWidth = getBattleFieldWidth();
-		// Set colors
-		setBodyColor(Color.pink);
-		setGunColor(Color.pink);
-		setRadarColor(Color.pink);
-		setScanColor(Color.pink);
-		setBulletColor(Color.pink);
 		
 		// Loop forever
 		setAdjustRadarForRobotTurn(true);
 		setAdjustGunForRobotTurn(true);
 		setAdjustRadarForGunTurn(true);
  
-    	if(this.getX() < 75 || this.getY() < 75 || this.battleFieldHeight - this.getY() < 75 || this.battleFieldWidth - this.getX() < 75) {
+    	if(this.getX() < this.wallDistance || this.getY() < this.wallDistance 
+    	|| this.battleFieldHeight - this.getY() < this.wallDistance 
+    	|| this.battleFieldWidth - this.getX() < this.wallDistance) {
     		 double centerAngle = Math.atan2(getBattleFieldWidth()/2-getX(), getBattleFieldHeight()/2-getY());
     		 setTurnRightRadians(normalRelativeAngle(centerAngle - getHeadingRadians()));
     		 ahead(75);
@@ -62,58 +57,33 @@ public class Nix extends AdvancedRobot {
 	 * We added a random factor to the direction our robot dodges and the distance he goes (The distance is going from 126 to 225)
 	 * We store enemy energy and when his energy changes we know he shot a bullet so we need to dodge it
 	 * If the enemy is near we just run away
-	 * We calculate the enemy next position (If he change his direction our robot we probably miss the bullet
 	 * Our scanner is always locked on enemy
 	 */
 	public void onScannedRobot(ScannedRobotEvent e) {
+		//dodgeWall
 		dodgeWall();
 		//Lock enemy robot in radar
 		double radarTurn = getHeadingRadians() + e.getBearingRadians() - getRadarHeadingRadians();
 		setTurnRadarRightRadians(normalRelativeAngle(radarTurn));
 		
-		double newEnergy = e.getEnergy();
     	//Rotate 90 degrees from enemy
     	setTurnRight(e.getBearing() + 90);
     	
     	//Dodge the enemy robot
-    	if(e.getDistance() < 100) {
-    		setAhead(this.moveDirection*100);
-			dodgeWall();
-    	}
+    	dodgeEnemy(e.getDistance());
     	
     	//Dodge the enemy bullet
-    	if(newEnergy != this.enemyEnergy) {
-    		//Update enemy energy
-    		this.enemyEnergy = newEnergy;
-    		
-    		//Add random factor to change direction so it can't be easily predicted
-   		 	int randomInteger = -10 + (int) (Math.random() * ((10 - (-10)) + 1));
-   		 	if(randomInteger == 0)
-   		 		this.moveDirection*=-1;
-   		 	else
-   		 		this.moveDirection*= (randomInteger/Math.abs(randomInteger));
-   		 	
-   		 	//Add random factor to change the distance he runs so it can't be easily predicted
-   		 	int randomDistance = (int) (Math.random() * (100 - 1)) + 1;
-   		 	//Add to 125 to that distance because we don't want him to run small distance
-   		 	randomDistance += 125;
-   		 	
-   		 	//Move left and Right 
-   		 	setAhead(this.moveDirection*randomDistance);	
-			dodgeWall();
-   	 	}		
+		double newEnergy = e.getEnergy();
+		dodgeEnemyBullet(newEnergy);
     	
     	// Calculate exact location of the robot
-    	double absoluteBearing = getHeadingRadians() + e.getBearingRadians();
-    	// Using enemy velocity predict where he is gonna go if he dont change is direction
-    	double bearingFromGun = normalRelativeAngle(absoluteBearing - getGunHeadingRadians() + (e.getVelocity() * Math.sin(e.getHeadingRadians() - absoluteBearing) / 13.0));
+    	double absoluteBearing = getHeading() + e.getBearing();
+    	double bearingFromGun = normalRelativeAngleDegrees(absoluteBearing - getGunHeading());
+    	// If it's close enough, fire!
     	
-    	// Rotate gun for enemy
-		setTurnGunRightRadians(bearingFromGun);
-		// Only shoot if he can
-    	if (getGunHeat() == 0) {
-    		// For security he doesn't shoot while low energy, only if the enemy is below 1 energy
-			if(this.getEnergy()>4 || e.getEnergy() < 1) {
+    	setTurnGunRight(bearingFromGun);
+		if (getGunHeat() == 0) {
+			if(this.getEnergy()>4) {
 				setFire(1.72);
 			}
 		}
@@ -152,8 +122,53 @@ public class Nix extends AdvancedRobot {
      * if he is we just move away from the wall
      */
     public void dodgeWall() {
-    	if(this.getX() < 75 || this.getY() < 75 || this.battleFieldHeight - this.getY() < 75 || this.battleFieldWidth - this.getX() < 75) {
+    	if(this.getX() < this.wallDistance || this.getY() < this.wallDistance 
+    	|| this.battleFieldHeight - this.getY() < this.wallDistance 
+    	|| this.battleFieldWidth - this.getX() < this.wallDistance) {
     		setAhead(this.moveDirection*-1*150);
     	}
+    }
+    
+    /**
+     * We use this function to dodge enemy when he gets near
+     * We also call dodgeWall() to prevent hitting the wall
+     */
+    public void dodgeEnemy(double distance) {
+    	if(distance < 100) {
+    		setAhead(this.moveDirection*100);
+			dodgeWall();
+    	}
+    }
+    
+    /**
+     * In this function we compare enemy new energy with the old energy
+     * if they are different it means he shot a bullet
+     * In that case we use a randomInteger to get a random direction (front or back)
+     * Then he also use a randomDistance to generate a random Integer between 1 and 100
+     * We also add 125 to that randomDistance to have a secure distance
+     * We move to dodge and just for the case we call dodgeWall() to prevent hitting wall
+     */
+    public void dodgeEnemyBullet(double newEnergy) {
+    	if(newEnergy != this.enemyEnergy) {
+    		//Update enemy energy
+    		this.enemyEnergy = newEnergy;
+    		
+    		//Add random factor to change direction so it can't be easily predicted
+   		 	int randomInteger = -10 + (int) (Math.random() * ((10 - (-10)) + 1));
+   		 	if(randomInteger == 0)
+   		 		this.moveDirection*=-1;
+   		 	else
+   		 		this.moveDirection*= (randomInteger/Math.abs(randomInteger));
+   		 	
+   		 	//Add random factor to change the distance he runs so it can't be easily predicted
+   		 	int randomDistance = (int) (Math.random() * (100 - 1)) + 1;
+   		 	//Add to 125 to that distance because we don't want him to run small distance
+   		 	randomDistance += 125;
+   		 	
+   		 	//Move left and Right 
+   		 	setAhead(this.moveDirection*randomDistance);	
+			dodgeWall();
+   	 	}		
+    	
     }
 }			
