@@ -3,8 +3,6 @@ package man;
 import robocode.*;
 import static robocode.util.Utils.normalRelativeAngle;
 import java.awt.*;
-import java.awt.geom.*;
-import java.util.*;
 
 /**
  * Robot with 90 Degrees direction to the enemy robot
@@ -20,12 +18,14 @@ public class Nix extends AdvancedRobot {
 	double battleFieldHeight;
 	double battleFieldWidth;
 	
-	//List to store enemyCords to dodge enemy
-	LinkedList<Point2D.Double> enemyCords;
-	
+	/**
+	 * In this function we store the battleField dimensions,
+	 * We change our robot colors
+	 * We make our radar, gun and robot be independent from each other
+	 * We also see if our robot starts near the wall, if it does we rotate our robot to the center and move forward
+	 * We finally rotate our radar to find enemy robot
+	 */
 	public void run() {
-		//Store enemy cords
-		this.enemyCords = new LinkedList<Point2D.Double>();
 		//Get batteField dimensions
     	this.battleFieldHeight = getBattleFieldHeight();
     	this.battleFieldWidth = getBattleFieldWidth();
@@ -54,14 +54,20 @@ public class Nix extends AdvancedRobot {
 			scan();
 		}
 	}
+	
 	/**
 	 * This function is called when he detects an opponent
-	 * It makes the robot to dodge from the enemy bullet
-	 * It makes the robot to fire to the enemy bullet
+	 * In this function we always rotate our robot in a 90 degrees from the opponent
+	 * If the enemy shoots we just need to move forward or backward to dodge
+	 * We added a random factor to the direction our robot dodges and the distance he goes (The distance is going from 126 to 225)
+	 * We store enemy energy and when his energy changes we know he shot a bullet so we need to dodge it
+	 * If the enemy is near we just run away
+	 * We calculate the enemy next position (If he change his direction our robot we probably miss the bullet
+	 * Our scanner is always locked on enemy
 	 */
 	public void onScannedRobot(ScannedRobotEvent e) {
 		dodgeWall();
-				//Lock enemy robot in radar
+		//Lock enemy robot in radar
 		double radarTurn = getHeadingRadians() + e.getBearingRadians() - getRadarHeadingRadians();
 		setTurnRadarRightRadians(normalRelativeAngle(radarTurn));
 		
@@ -102,58 +108,49 @@ public class Nix extends AdvancedRobot {
     	// Using enemy velocity predict where he is gonna go if he dont change is direction
     	double bearingFromGun = normalRelativeAngle(absoluteBearing - getGunHeadingRadians() + (e.getVelocity() * Math.sin(e.getHeadingRadians() - absoluteBearing) / 13.0));
     	
-    			
-    	// Calculate coordinates of the enemy robot
-    	double enemyBearing = e.getBearing();
-    	double enemyX = getX() + e.getDistance() * Math.sin(Math.toRadians(enemyBearing));
-    	double enemyY = getY() + e.getDistance() * Math.cos(Math.toRadians(enemyBearing));
-    	    	
-    	// Save all the coordinates enemy was
-    	this.enemyCords.addFirst(new Point2D.Double(enemyX, enemyY));
-    	// If it's close enough, fire!
-    	if (Math.abs(bearingFromGun) <= 3) {
-    		setTurnGunRightRadians(bearingFromGun);
-    		// We check gun heat here, because calling fire()
-    		// uses a turn, which could cause us to lose track
-    		// of the other robot.
-    		if (getGunHeat() == 0) {
-    			if(this.getEnergy()>4) {
-    				fire(1.72);
-    			}
-    		}
-    	} // otherwise just set the gun to turn.
-    	// Note:  This will have no effect until we call scan()
-    	else {
-    		setTurnGunRight(bearingFromGun);
-    	}
-    	// Generates another scan event if we see a robot.
-    	// We only need to call this if the gun (and therefore radar)
-    	// are not turning.  Otherwise, scan is called automatically.
-    	if (bearingFromGun == 0) {
-    		scan();
-    	}
+    	// Rotate gun for enemy
+		setTurnGunRightRadians(bearingFromGun);
+		// Only shoot if he can
+    	if (getGunHeat() == 0) {
+    		// For security he doesn't shoot while low energy, only if the enemy is below 1 energy
+			if(this.getEnergy()>4 || e.getEnergy() < 1) {
+				setFire(1.72);
+			}
+		}
 	}
 
-	//Update enemy energy when he gets hit
+	/**
+	 * This function updates the storaged enemy health 
+	 * when he gets hit
+	 */
     public void onBulletHit(BulletHitEvent event) {
    	 	this.enemyEnergy = event.getEnergy();
     }
     
-    //Walks away from the wall
+    /**
+     * If the robot hit the wall, we change his direction and move away
+     * Just for precaution we call the dodgeWall() function
+     */
     public void onHitWall(HitWallEvent e) {
     	this.moveDirection*=-1;
     	setAhead(this.moveDirection*150);
     	dodgeWall();
     }
     
-    //Run when hitted by enemy robot
+    /**
+     * If the robots collides with another robot, we change his direction and move away
+     * Just for precaution we call the dodgeWall() function
+     */
     public void onHitRobot(HitRobotEvent event) {
     	this.moveDirection*=-1;
     	setAhead(this.moveDirection*150);
     	dodgeWall();
     }
     
-    //Calculate if near a wall and dodge it
+    /**
+     * We use this function to see if our robot is near a wall
+     * if he is we just move away from the wall
+     */
     public void dodgeWall() {
     	if(this.getX() < 75 || this.getY() < 75 || this.battleFieldHeight - this.getY() < 75 || this.battleFieldWidth - this.getX() < 75) {
     		setAhead(this.moveDirection*-1*150);
