@@ -13,7 +13,7 @@ import static robocode.util.Utils.normalRelativeAngleDegrees;
  */
 public class Nix extends AdvancedRobot {
 	double enemyEnergy = 100;
-	double wallDistance = 75;
+	double wallDistance = 125;
 	int moveDirection = 1;
 	double battleFieldHeight;
 	double battleFieldWidth;
@@ -38,9 +38,9 @@ public class Nix extends AdvancedRobot {
     	|| this.battleFieldHeight - this.getY() < this.wallDistance 
     	|| this.battleFieldWidth - this.getX() < this.wallDistance) {
     		 double centerAngle = Math.atan2(getBattleFieldWidth()/2-getX(), getBattleFieldHeight()/2-getY());
-    		 setTurnRightRadians(normalRelativeAngle(centerAngle - getHeadingRadians()));
-    		 ahead(75);
-    		 execute();
+    		 turnRightRadians(normalRelativeAngle(centerAngle - getHeadingRadians()));
+    		 ahead(175);
+    		 
     	}
     	
 		// Turn the radar to find enemy robot
@@ -56,7 +56,7 @@ public class Nix extends AdvancedRobot {
 	 * If the enemy shoots we just need to move forward or backward to dodge
 	 * We added a random factor to the direction our robot dodges and the distance he goes (The distance is going from 126 to 225)
 	 * We store enemy energy and when his energy changes we know he shot a bullet so we need to dodge it
-	 * If the enemy is near we just run away
+	 * If the enemy is near we attack with full power
 	 * Our scanner is always locked on enemy
 	 */
 	public void onScannedRobot(ScannedRobotEvent e) {
@@ -69,13 +69,13 @@ public class Nix extends AdvancedRobot {
     	//Rotate 90 degrees from enemy
     	setTurnRight(e.getBearing() + 90);
     	
-    	//Dodge the enemy robot
-    	dodgeEnemy(e.getDistance());
+    	//Full Power enemy robot
+    	fullPowerBullet(e.getDistance());
     	
     	//Dodge the enemy bullet
 		double newEnergy = e.getEnergy();
 		dodgeEnemyBullet(newEnergy);
-    	
+		dodgeWall();
     	// Calculate exact location of the robot
     	double absoluteBearing = getHeading() + e.getBearing();
     	double bearingFromGun = normalRelativeAngleDegrees(absoluteBearing - getGunHeading());
@@ -83,7 +83,7 @@ public class Nix extends AdvancedRobot {
     	
     	setTurnGunRight(bearingFromGun);
 		if (getGunHeat() == 0) {
-			if(this.getEnergy()>4) {
+			if(this.getEnergy()>4 || e.getEnergy() < 0.1) {
 				setFire(1.72);
 			}
 		}
@@ -99,22 +99,16 @@ public class Nix extends AdvancedRobot {
     
     /**
      * If the robot hit the wall, we change his direction and move away
-     * Just for precaution we call the dodgeWall() function
      */
     public void onHitWall(HitWallEvent e) {
-    	this.moveDirection*=-1;
-    	setAhead(this.moveDirection*150);
-    	dodgeWall();
+    	setAhead(this.moveDirection*-1*150);
     }
     
     /**
      * If the robots collides with another robot, we change his direction and move away
-     * Just for precaution we call the dodgeWall() function
      */
     public void onHitRobot(HitRobotEvent event) {
-    	this.moveDirection*=-1;
-    	setAhead(this.moveDirection*150);
-    	dodgeWall();
+    	setAhead(this.moveDirection*-1*150);
     }
     
     /**
@@ -125,18 +119,19 @@ public class Nix extends AdvancedRobot {
     	if(this.getX() < this.wallDistance || this.getY() < this.wallDistance 
     	|| this.battleFieldHeight - this.getY() < this.wallDistance 
     	|| this.battleFieldWidth - this.getX() < this.wallDistance) {
-    		setAhead(this.moveDirection*-1*150);
+    		setAhead(this.moveDirection*-1*100);
     	}
     }
     
     /**
-     * We use this function to dodge enemy when he gets near
-     * We also call dodgeWall() to prevent hitting the wall
+     * We use this function to attack enemy with max bullet power when 
+     * he gets close
      */
-    public void dodgeEnemy(double distance) {
+    public void fullPowerBullet(double distance) {
     	if(distance < 100) {
-    		setAhead(this.moveDirection*100);
-			dodgeWall();
+    		if (getGunHeat() == 0) {
+    			setFire(3);
+    		}
     	}
     }
     
@@ -155,6 +150,7 @@ public class Nix extends AdvancedRobot {
     		
     		//Add random factor to change direction so it can't be easily predicted
    		 	int randomInteger = -10 + (int) (Math.random() * ((10 - (-10)) + 1));
+   		 	
    		 	if(randomInteger == 0)
    		 		this.moveDirection*=-1;
    		 	else
@@ -163,11 +159,10 @@ public class Nix extends AdvancedRobot {
    		 	//Add random factor to change the distance he runs so it can't be easily predicted
    		 	int randomDistance = (int) (Math.random() * (100 - 1)) + 1;
    		 	//Add to 125 to that distance because we don't want him to run small distance
-   		 	randomDistance += 125;
+   		 	randomDistance += 50;
    		 	
    		 	//Move left and Right 
    		 	setAhead(this.moveDirection*randomDistance);	
-			dodgeWall();
    	 	}		
     	
     }
